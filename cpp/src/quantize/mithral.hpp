@@ -1187,6 +1187,10 @@ void mithral_scan(const uint8_t* codes, int64_t nblocks,
         for (uint8_t j = 0; j < NBytes; j++) {
             auto both_luts = load_si256i(lut_ptr);
             lut_ptr += 32;
+            /* _mm256_permute2x128_si256
+ *           Permutes 128-bit integer data from source vector a and source vector b using bits in the 8-bit immediate and 
+ *           stores results in the destination vector.
+ *           */
             auto lut0 = _mm256_permute2x128_si256(both_luts, both_luts, 0 + (0 << 4));
             auto lut1 = _mm256_permute2x128_si256(both_luts, both_luts, 1 + (1 << 4));
             lut_arrays[2 * j][mm] = lut0;
@@ -1243,6 +1247,12 @@ void mithral_scan(const uint8_t* codes, int64_t nblocks,
                     auto dists_low = _mm256_shuffle_epi8(lut_low, x_low);
                     auto dists_high = _mm256_shuffle_epi8(lut_high, x_high);
 
+                    /*  _mm256_avg_epu8
+ *                  Performs a SIMD average of the packed unsigned integers from source vector s2 and source vector s1 and stores 
+ *                  the results in the destination vector. For each corresponding pair of data elements in the first and second vectors, 
+ *                  the elements are added together, a 1 is added to the temporary sum, and that result is shifted right by one bit position.
+                    */
+
                     auto avgs = _mm256_avg_epu8(dists_low, dists_high);
 
                     // update running averages; this is messy because you
@@ -1251,6 +1261,10 @@ void mithral_scan(const uint8_t* codes, int64_t nblocks,
                     // instead of a true average;
                     // note that we need to use inline asm to get the right
                     // instruction here on my machine for unclear reasons
+
+                    /* avg_epu8 uses vpavgb
+                       vpavgb: Average packed unsigned byte integers from ymm2, and ymm3/m256 with rounding and store to ymm1. 
+                    */
                     if (gg % 128 == 127) {
                         auto new_avg_prev2 = avg_epu8(avg_prev1[mm], avgs);
                         auto new_avg_prev4 = avg_epu8(avg_prev2[mm], new_avg_prev2);
@@ -1308,6 +1322,21 @@ void mithral_scan(const uint8_t* codes, int64_t nblocks,
                                  colgroup_sz == 64 ? avg_prev64[mm] :
                                  avg_prev128[mm];
                 if (use_uint8_output) { // write out 8b values
+                    /*
+                    Performs a store operation by moving scalar integer values from an integer vector group_avg, to a
+                    256-bit aligned memory location, pointed to by out_ptrs[mm], using a non-temporal hint to prevent caching of the data
+                    during the write to memory.                                                                                       
+                    */
+
+                    /*
+                    uint8_t val[32];
+                    memcpy(val, &group_avg, sizeof(val));
+                    printf("Numerical: %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i \n", 
+                        val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7], val[8], val[9], val[10], val[11], val[12], val[13], 
+                        val[14], val[15], val[16], val[17], val[18], val[19], val[20], val[21], val[22], val[23], val[24], val[25], val[26], val[27], val[28], val[29],
+                        val[30], val[31]);
+                    */
+
                     _mm256_stream_si256((__m256i*)out_ptrs[mm], group_avg);
                     out_ptrs[mm] += 32;
                 } else {

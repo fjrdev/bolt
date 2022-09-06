@@ -73,10 +73,22 @@ void mithral_encode(
 
                 // true = signed saturation; better because cmp instructions
                 // exist for epi8 but not epu8
+                /*  load_4xf32_as_32xepi8_or_epu8:
+                    uses fma to multiply the current pointer of x with vscales and add voffsets to it
+                    returns one vector which is packed with 4 vectors (see description below). 4 vectors are needed due to the 
+                    different bit-versions provided (8, 16, 3)
+                */
                 auto x_i8 = load_4xf32_as_32xepi8_or_epu8<true, !DeferPerm>(
                     // x_ptr, vscales);
                     x_ptr, vscales, voffsets);
 
+                // masks-vector is 1 at certain index i if x_i8[i] > vsplitvals[i] otherwise zero; this will determine whether we move to left or right child
+                /* _mm256_cmpgt_epi8(s1, s2) :
+                   compares both vectors element wise (bitwise in this case)
+                   if s1[i] > s2[i] the destination vector is set to 1, otherwise to 0
+                   if the values at the specific index are zero, the destination vector is also set to zero
+                   => so mask is a vector of zeros and ones, which compares 
+                */
                 auto masks = _mm256_cmpgt_epi8(x_i8, vsplitvals);
                 // map -1 -> 1; 0 stays the same
                 auto masks_0_or_1 = _mm256_sign_epi8(masks, masks);
