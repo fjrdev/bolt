@@ -587,7 +587,7 @@ class MithralEncoder(MultiCodebookEncoder):
             ncodebooks=ncodebooks, ncentroids=16,
             # quantize_lut=True, upcast_every=64,
             # quantize_lut=True, upcast_every=32,
-            quantize_lut=True, upcast_every=16,
+            quantize_lut=False, upcast_every=16,
             # quantize_lut=True, upcast_every=8,
             # quantize_lut=True, upcast_every=4,
             # quantize_lut=True, upcast_every=2,
@@ -606,6 +606,19 @@ class MithralEncoder(MultiCodebookEncoder):
         self.splits_lists, self.centroids = clusterize.learn_mithral(
             X, self.ncodebooks, lut_work_const=self.lut_work_const)
         # self._learn_lut_quantization(X, Q)
+
+    def get_splitvals(self):
+        return self.splits_lists
+
+    def get_centroids(self):
+        return self.centroids
+
+    def get_offsets(self):
+        return self.offsets
+
+    def get_idxs(self, X):
+        idxs = clusterize.mithral_encode(X, self.splits_lists)
+        return idxs
 
     def encode_X(self, X):
         idxs = clusterize.mithral_encode(X, self.splits_lists)

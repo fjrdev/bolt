@@ -8,7 +8,8 @@ import numba
 from sklearn.decomposition import PCA
 from sklearn import linear_model
 
-from . import subspaces as subs
+import subspaces as subs
+import vquantizers as vq
 
 from joblib import Memory
 _memory = Memory('.', verbose=0)
@@ -2195,4 +2196,128 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # define params for X Matrix
+    D = 16
+    N = 16
+    M = 16
+    ncodebooks = 16
+    X = np.random.randint(0, high=1000, size=[N, D])
+    Q = np.random.randint(0, high=1000, size=[D, M])
+
+    enc = vq.MithralEncoder(ncodebooks)
+    enc.fit(X)
+    split_lists = enc.get_splitvals()
+    centroids = enc.get_centroids()
+    luts, offsets, scale = enc.encode_Q(Q.T)
+
+    # split-tensor: [[4x MultiSplit-object], [4x MultiSplit-object], ..., [4x MultiSplit-object]]
+
+    # fill init-vals to txt file
+    f = open("init_params.txt", "w")
+    f.write(str(N))
+    f.write("\n")
+    f.write(str(D))
+    f.write("\n")
+    f.write(str(M))
+    f.write("\n")
+    f.write(str(ncodebooks))
+    f.close()
+
+    # copy split dims to txt file
+    f = open("split_dims.txt", "w")
+    for i in range(ncodebooks):
+        for x in range(4):
+            f.write(str(split_lists[i][x].dim))
+            f.write("\n")
+    f.close()
+
+
+    # copy split vals to txt file [VERSION 1 IN cpp/test main.cpp]
+    f = open("split_vals.txt", "w")
+    for i in range(ncodebooks):
+        for x in range(4):
+            itr = pow(2, x)
+            pad = 16 - itr
+            for y in range(itr):
+                 f.write(str(split_lists[i][x].vals[y]))
+                 f.write("\n")
+            for p in range(pad):
+                 f.write(str(0))
+                 f.write("\n")
+    f.close()
+
+
+    # copy split vals to txt file [VERSION 2 IN cpp/test main.cpp]
+    f = open("split_vals_v2.txt", "w")
+    for i in range(ncodebooks):
+        for x in range(4):
+            itr = pow(2, x)
+            for y in range(itr):
+                f.write(str(split_lists[i][x].vals[y]))
+                f.write("\n")
+    f.close()
+
+
+    # copy scaleby values
+    f = open("scaleby.txt", "w")
+    for i in range(ncodebooks):
+        for j in range(4):
+            f.write(str(split_lists[i][j].scaleby))
+            f.write("\n")
+    f.close()
+
+
+    # copy offset
+    f = open("offset.txt", "w")
+    for i in range(ncodebooks):
+        for j in range(4):
+            f.write(str(split_lists[i][j].offset))
+            f.write("\n")
+    f.close()
+
+
+    # copy centroids
+    f = open("centroids.txt", "w")
+    for n in range(ncodebooks):
+        for c in range(16):
+            for d in range(D):
+                f.write(str(centroids[n][c][d]))
+                f.write("\n")
+    f.close()
+
+
+    # copy Matrix X
+    f = open("mat_x.txt", "w")
+    for d in range(D):
+        for n in range(N):
+            f.write(str(X[n][d]))
+            f.write("\n")
+    f.close()
+
+    # copy Matrix Q
+    f = open("mat_q.txt", "w")
+    for m in range(M):
+        for d in range(D):
+             f.write(str(Q[d][m]))
+             f.write("\n")
+    f.close()
+
+
+    # copy W = X * Q
+    f = open("mat_w.txt", "w")
+    W = np.matmul(X, Q)
+    for m in range(M):
+        for n in range(N):
+            f.write(str(W[n][m]))
+            f.write("\n")
+    f.close()
+
+
+    # copy luts
+    f = open("luts.txt", "w")
+    for n in range(N):
+         for i in range(ncodebooks):
+              for y in range(16):
+                   f.write(str(luts[n][i][y]))
+                   f.write("\n")
+    f.close()
